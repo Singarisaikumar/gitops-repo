@@ -9,15 +9,15 @@ data "aws_vpcs" "all_vpcs" {}
 data "aws_subnets" "existing_subnets" {
   filter {
     name   = "vpc-id"
-    values = [element(data.aws_vpcs.all_vpcs.ids, 0)] # Picks exactly one VPC ID
+    values = [element(data.aws_vpcs.all_vpcs.ids, 0)]
   }
 }
 
-# 3. Create your network firewall doors inside that specific selected network
+# 3. FIX: Changed 'name' to 'name_prefix' to automatically clear duplicate name errors
 resource "aws_security_group" "cloud_sg" {
-  name        = "devops-automated-sg-v4"
+  name_prefix = "devops-automated-sg-" 
   description = "Security rules for pure automation pipeline"
-  vpc_id      = element(data.aws_vpcs.all_vpcs.ids, 0) # Links to the selected network
+  vpc_id      = element(data.aws_vpcs.all_vpcs.ids, 0)
 
   ingress {
     from_port   = 22
@@ -52,7 +52,7 @@ resource "aws_security_group" "cloud_sg" {
 resource "aws_instance" "cloud_server" {
   ami                    = "ami-04b70fa74e45c3917" # Ubuntu 24.04 LTS OS image
   instance_type          = "t3.medium"            # 2 vCPU, 4GB Memory
-  subnet_id              = element(data.aws_subnets.existing_subnets.ids, 0) # Picks the first subnet ID safely
+  subnet_id              = element(data.aws_subnets.existing_subnets.ids, 0)
   vpc_security_group_ids = [aws_security_group.cloud_sg.id]
 
   user_data = <<-EOF
