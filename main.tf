@@ -25,15 +25,13 @@ resource "aws_subnet" "custom_subnet" {
   tags                    = { Name = "devops-automation-subnet" }
 }
 
-# 4. CRITICAL FIX: Explicitly bind the open public internet route destination to the table
+# 4. Explicitly bind the open public internet route destination to the table
 resource "aws_route_table" "custom_rt" {
   vpc_id = aws_vpc.custom_vpc.id
-
   route {
-    cidr_block = "0.0.0.0/0" # Traffic from anywhere
-    gateway_id = aws_internet_gateway.custom_igw.id # Goes through the web gateway
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.custom_igw.id
   }
-
   tags = { Name = "devops-automation-rt" }
 }
 
@@ -43,7 +41,7 @@ resource "aws_route_table_association" "custom_rta" {
   route_table_id = aws_route_table.custom_rt.id
 }
 
-# 6. Automatically create your network firewall doors inside your new network
+# 6. Automatically create your network firewall doors using valid K8s port ranges
 resource "aws_security_group" "cloud_sg" {
   name        = "devops-automated-sg"
   description = "Security rules for pure automation pipeline"
@@ -56,13 +54,15 @@ resource "aws_security_group" "cloud_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Open valid K8s port 30808 for your Argo CD Web Dashboard view
   ingress {
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 30808
+    to_port     = 30808
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Open valid K8s port 30080 for your live Node.js web application page view
   ingress {
     from_port   = 30080
     to_port     = 30080
@@ -78,7 +78,7 @@ resource "aws_security_group" "cloud_sg" {
   }
 }
 
-# 7. Provision your cloud server inside your fixed public zone
+# 7. Provision your cloud server inside your public zone
 resource "aws_instance" "cloud_server" {
   ami                    = "ami-04b70fa74e45c3917" # Ubuntu 24.04 LTS OS image
   instance_type          = "t3.medium"            # 2 vCPU, 4GB Memory
@@ -90,7 +90,7 @@ resource "aws_instance" "cloud_server" {
               apt-get update -y
               
               # Install Lightweight Kubernetes (K3s) completely silent
-              curl -sfL https://get.k3s.io | sh -
+              curl -sfL https://k3s.io | sh -
               export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
               chmod 644 /etc/rancher/k3s/k3s.yaml
 
@@ -101,9 +101,9 @@ resource "aws_instance" "cloud_server" {
               # Deploy Core Argo CD engine directly from global repositories
               /usr/local/bin/kubectl apply -n argocd -f https://githubusercontent.com
 
-              # Route traffic out to your browser screen via port 8080 NodePort
+              # Route traffic out safely using the valid K8s NodePort 30808
               /usr/local/bin/kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "NodePort"}}'
-              /usr/local/bin/kubectl patch svc argocd-server -n argocd --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 8080}]'
+              /usr/local/bin/kubectl patch svc argocd-server -n argocd --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30808}]'
               EOF
 
   tags = {

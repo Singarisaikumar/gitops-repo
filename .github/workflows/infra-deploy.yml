@@ -33,6 +33,6 @@ jobs:
         run: |
           PUBLIC_IP=$(terraform output -raw your_public_cloud_ip)
           echo "=========================================================="
-          echo "🚀 YOUR LIVE ARGO CD WEB URL: http://$PUBLIC_IP:8080"
+          echo "🚀 YOUR LIVE ARGO CD WEB URL: http://$PUBLIC_IP:30808"
           echo "🚀 YOUR LIVE WEB APP ADDRESS: http://$PUBLIC_IP:30080"
           echo "=========================================================="
