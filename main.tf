@@ -2,10 +2,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# 1. This block automatically creates your network firewall doors
+# 1. This block automatically searches your AWS account to find an available network
+data "aws_vpc" "selected" {
+  default = false
+}
+
+# 2. This block automatically creates your network firewall doors inside that network
 resource "aws_security_group" "cloud_sg" {
   name        = "devops-automated-sg"
   description = "Security rules for pure automation pipeline"
+  vpc_id      = data.aws_vpc.selected.id # Dynamic network mapping fix
 
   # Open Port 22 for secure command line access
   ingress {
@@ -40,7 +46,7 @@ resource "aws_security_group" "cloud_sg" {
   }
 }
 
-# 2. This block provisions your cloud server and installs all tools silently
+# 3. This block provisions your cloud server and installs all tools silently
 resource "aws_instance" "cloud_server" {
   ami                    = "ami-04b70fa74e45c3917" # Official Ubuntu 24.04 LTS OS image
   instance_type          = "t3.medium"            # Server sizing size (2 vCPU, 4GB Memory)
