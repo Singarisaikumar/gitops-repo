@@ -20,27 +20,30 @@ resource "aws_internet_gateway" "custom_igw" {
 resource "aws_subnet" "custom_subnet" {
   vpc_id                  = aws_vpc.custom_vpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a" # Force selection to clear the zone error
+  availability_zone       = "us-east-1a"
   map_public_ip_on_launch = true
   tags                    = { Name = "devops-automation-subnet" }
 }
 
-# 4. Automatically set up network routing paths
+# 4. CRITICAL FIX: Explicitly bind the open public internet route destination to the table
 resource "aws_route_table" "custom_rt" {
   vpc_id = aws_vpc.custom_vpc.id
+
   route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.custom_igw.id
+    cidr_block = "0.0.0.0/0" # Traffic from anywhere
+    gateway_id = aws_internet_gateway.custom_igw.id # Goes through the web gateway
   }
+
   tags = { Name = "devops-automation-rt" }
 }
 
+# 5. Connect the public route table directly to your server's subnet zone
 resource "aws_route_table_association" "custom_rta" {
   subnet_id      = aws_subnet.custom_subnet.id
   route_table_id = aws_route_table.custom_rt.id
 }
 
-# 5. Automatically create your network firewall doors inside your new network
+# 6. Automatically create your network firewall doors inside your new network
 resource "aws_security_group" "cloud_sg" {
   name        = "devops-automated-sg"
   description = "Security rules for pure automation pipeline"
@@ -75,7 +78,7 @@ resource "aws_security_group" "cloud_sg" {
   }
 }
 
-# 6. Provision your cloud server inside your new network zone
+# 7. Provision your cloud server inside your fixed public zone
 resource "aws_instance" "cloud_server" {
   ami                    = "ami-04b70fa74e45c3917" # Ubuntu 24.04 LTS OS image
   instance_type          = "t3.medium"            # 2 vCPU, 4GB Memory
@@ -87,7 +90,7 @@ resource "aws_instance" "cloud_server" {
               apt-get update -y
               
               # Install Lightweight Kubernetes (K3s) completely silent
-              curl -sfL https://k3s.io | sh -
+              curl -sfL https://get.k3s.io | sh -
               export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
               chmod 644 /etc/rancher/k3s/k3s.yaml
 
@@ -108,7 +111,6 @@ resource "aws_instance" "cloud_server" {
   }
 }
 
-# Print out your live cloud website address path on terminal logs when completed
 output "your_public_cloud_ip" {
   value = aws_instance.cloud_server.public_ip
 }
