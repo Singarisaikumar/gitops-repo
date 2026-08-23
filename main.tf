@@ -2,18 +2,49 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# 1. This block automatically searches your AWS account to find an available network
-data "aws_vpc" "selected" {
-  default = false
+# 1. Automatically build a brand-new network from scratch
+resource "aws_vpc" "custom_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  tags = { Name = "devops-automation-vpc" }
 }
 
-# 2. This block automatically creates your network firewall doors inside that network
+# 2. Automatically create an Internet Gateway to hook your network to the web
+resource "aws_internet_gateway" "custom_igw" {
+  vpc_id = aws_vpc.custom_vpc.id
+  tags   = { Name = "devops-automation-igw" }
+}
+
+# 3. Automatically create a public subnet zone for your server
+resource "aws_subnet" "custom_subnet" {
+  vpc_id                  = aws_vpc.custom_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  tags                    = { Name = "devops-automation-subnet" }
+}
+
+# 4. Automatically set up network routing paths
+resource "aws_route_table" "custom_rt" {
+  vpc_id = aws_vpc.custom_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.custom_igw.id
+  }
+  tags = { Name = "devops-automation-rt" }
+}
+
+resource "aws_route_table_association" "custom_rta" {
+  subnet_id      = aws_subnet.custom_subnet.id
+  route_table_id = aws_route_table.custom_rt.id
+}
+
+# 5. Automatically create your network firewall doors inside your new network
 resource "aws_security_group" "cloud_sg" {
   name        = "devops-automated-sg"
   description = "Security rules for pure automation pipeline"
-  vpc_id      = data.aws_vpc.selected.id # Dynamic network mapping fix
+  vpc_id      = aws_vpc.custom_vpc.id # Links to your new network
 
-  # Open Port 22 for secure command line access
   ingress {
     from_port   = 22
     to_port     = 22
@@ -21,7 +52,6 @@ resource "aws_security_group" "cloud_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Open Port 8080 for your Argo CD Web Dashboard console view
   ingress {
     from_port   = 8080
     to_port     = 8080
@@ -29,7 +59,6 @@ resource "aws_security_group" "cloud_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Open Port 30080 for your live Node.js web application page view
   ingress {
     from_port   = 30080
     to_port     = 30080
@@ -37,7 +66,6 @@ resource "aws_security_group" "cloud_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Open outbound channel so the server can download secure packages
   egress {
     from_port   = 0
     to_port     = 0
@@ -46,13 +74,13 @@ resource "aws_security_group" "cloud_sg" {
   }
 }
 
-# 3. This block provisions your cloud server and installs all tools silently
+# 6. Provision your cloud server inside your new network zone
 resource "aws_instance" "cloud_server" {
-  ami                    = "ami-04b70fa74e45c3917" # Official Ubuntu 24.04 LTS OS image
-  instance_type          = "t3.medium"            # Server sizing size (2 vCPU, 4GB Memory)
+  ami                    = "ami-04b70fa74e45c3917" # Ubuntu 24.04 LTS OS image
+  instance_type          = "t3.medium"            # 2 vCPU, 4GB Memory
+  subnet_id              = aws_subnet.custom_subnet.id
   vpc_security_group_ids = [aws_security_group.cloud_sg.id]
 
-  # This startup script executes completely by itself on boot up sequence
   user_data = <<-EOF
               #!/bin/bash
               apt-get update -y
