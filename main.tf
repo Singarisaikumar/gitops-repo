@@ -2,24 +2,22 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# 1. Automatically discover an existing VPC network in your account
-data "aws_vpc" "existing" {
-  default = false
-}
+# 1. Dynamically gather a list of ALL existing VPC networks in your account
+data "aws_vpcs" "all_vpcs" {}
 
-# 2. Automatically discover a subnet inside that existing network
+# 2. Dynamically gather the subnets belonging to the first VPC in that list
 data "aws_subnets" "existing_subnets" {
   filter {
     name   = "vpc-id"
-    values = [data.aws_vpc.existing.id]
+    values = [element(data.aws_vpcs.all_vpcs.ids, 0)] # Picks exactly one VPC ID
   }
 }
 
-# 3. Create your network firewall doors inside the discovered existing network
+# 3. Create your network firewall doors inside that specific selected network
 resource "aws_security_group" "cloud_sg" {
-  name        = "devops-automated-sg-v3"
+  name        = "devops-automated-sg-v4"
   description = "Security rules for pure automation pipeline"
-  vpc_id      = data.aws_vpc.existing.id # Reuses your existing network
+  vpc_id      = element(data.aws_vpcs.all_vpcs.ids, 0) # Links to the selected network
 
   ingress {
     from_port   = 22
@@ -50,11 +48,11 @@ resource "aws_security_group" "cloud_sg" {
   }
 }
 
-# 4. Provision your cloud server inside the discovered existing subnet zone
+# 4. Provision your cloud server inside the first discovered subnet zone
 resource "aws_instance" "cloud_server" {
   ami                    = "ami-04b70fa74e45c3917" # Ubuntu 24.04 LTS OS image
   instance_type          = "t3.medium"            # 2 vCPU, 4GB Memory
-  subnet_id              = data.aws_subnets.existing_subnets.ids[0] # Automatically picks first subnet
+  subnet_id              = element(data.aws_subnets.existing_subnets.ids, 0) # Picks the first subnet ID safely
   vpc_security_group_ids = [aws_security_group.cloud_sg.id]
 
   user_data = <<-EOF
