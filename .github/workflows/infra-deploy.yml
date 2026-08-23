@@ -1,0 +1,30 @@
+name: "Automated AWS Cloud Deploy"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform-build:
+    name: "Run Automation Provisioning"
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Download Project Code Files
+        uses: actions/checkout@v4
+
+      - name: 2. Load Terraform Tool Engine
+        uses: hashicorp/setup-terraform@v3
+
+      - name: 3. Authenticate with AWS Cloud Programmatically
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: 4. Initialize Core Providers
+        run: terraform init
+
+      - name: 5. Execute Automated Infrastructure Build
+        run: terraform apply -auto-approve
