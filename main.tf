@@ -16,10 +16,11 @@ resource "aws_internet_gateway" "custom_igw" {
   tags   = { Name = "devops-automation-igw" }
 }
 
-# 3. Automatically create a public subnet zone for your server
+# 3. Automatically create a public subnet zone explicitly inside us-east-1a
 resource "aws_subnet" "custom_subnet" {
   vpc_id                  = aws_vpc.custom_vpc.id
   cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a" # Force selection to clear the zone error
   map_public_ip_on_launch = true
   tags                    = { Name = "devops-automation-subnet" }
 }
@@ -43,7 +44,7 @@ resource "aws_route_table_association" "custom_rta" {
 resource "aws_security_group" "cloud_sg" {
   name        = "devops-automated-sg"
   description = "Security rules for pure automation pipeline"
-  vpc_id      = aws_vpc.custom_vpc.id # Links to your new network
+  vpc_id      = aws_vpc.custom_vpc.id
 
   ingress {
     from_port   = 22
